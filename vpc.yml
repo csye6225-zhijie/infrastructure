@@ -27,28 +27,28 @@ Resources:
       - Key: Name
         Value: csye6225-subnet1
 
-  # mySubnet2:
-  #   Type: AWS::EC2::Subnet
-  #   Properties:
-  #     VpcId:
-  #       Ref: myVPC
-  #     CidrBlock: "10.0.2.0/24"
-  #     AvailabilityZone: "us-east-1b"
-  #     Tags:
-  #     - Key: Name
-  #       Value: csye6225-subnet2
+  mySubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      CidrBlock: "10.0.2.0/24"
+      AvailabilityZone: "us-east-1b"
+      Tags:
+      - Key: Name
+        Value: csye6225-subnet2
 
 
-  # mySubnet3:
-  #   Type: AWS::EC2::Subnet
-  #   Properties:
-  #     VpcId:
-  #       Ref: myVPC
-  #     CidrBlock: "10.0.3.0/24"
-  #     AvailabilityZone: "us-east-1c"
-  #     Tags:
-  #     - Key: Name
-  #       Value: csye6225-subnet3
+  mySubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      CidrBlock: "10.0.3.0/24"
+      AvailabilityZone: "us-east-1c"
+      Tags:
+      - Key: Name
+        Value: csye6225-subnet3
   
   myRouteTable:
     Type: AWS::EC2::RouteTable
@@ -77,7 +77,10 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId:
-        Ref: mySubnet1  ##  mySubnet2, mySubnet3
+        Ref: 
+          - mySubnet1
+          - mySubnet2
+          - mySubnet3
       RouteTableId:
         Ref: myRouteTable
 
