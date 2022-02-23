@@ -51,13 +51,13 @@ Resources:
         Value: csye6225-subnet3
   
   myRouteTable:
-  Type: AWS::EC2::RouteTable
-  Properties:
-    VpcId:
-      Ref: myVPC
-    Tags:
-    - Key: name
-      Value: csye6225-RouteTable
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: myVPC
+      Tags:
+      - Key: name
+        Value: csye6225-RouteTable
 
   myRoute: 
     Type: AWS::EC2::Route
