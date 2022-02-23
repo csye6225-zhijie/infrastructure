@@ -4,14 +4,55 @@ Parameters:
     Description: "CIDR block for VPC"
     Type: String
     Default: "10.0.0.0/16"
-  
+  VpcEnableDnsSupport:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: 'true'
+  VpcEnableDnsHostnames:
+    Description: "Enable DNS hostname, and need DNS support as true"
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: 'true'
+
+  Subnet1CidrBlock:
+    Description: "CIDR block for subnet1"
+    Type: String
+    Default: "10.0.1.0/24"
+  Subnet1AZ:
+    Description: "Subnet1 Availability Zone"
+    Type: "String"
+    Default: "us-east-1a"
+  Subnet2CidrBlock:
+    Description: "CIDR block for subnet2"
+    Type: String
+    Default: "10.0.2.0/24"
+  Subnet2AZ:
+    Description: "Subnet2 Availability Zone"
+    Type: "String"
+    Default: "us-east-1b"
+  Subnet3CidrBlock:
+    Description: "CIDR block for subnet3"
+    Type: String
+    Default: "10.0.3.0/24"
+  Subnet3AZ:
+    Description: "Subnet3 Availability Zone"
+    Type: "String"
+    Default: "us-east-1c"
+  RouteDestinationCidrBlock:
+    Description: "Destination CidrBlock for route"
+    Type: String
+    Default: "0.0.0.0/0"
 Resources:
   myVPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: !Ref VpcCidrBlock
-      EnableDnsSupport: 'true'
-      EnableDnsHostnames: 'true'
+      EnableDnsSupport: !Ref VpcEnableDnsSupport
+      EnableDnsHostnames: !Ref VpcEnableDnsHostnames
       InstanceTenancy: 'default'
       Tags:
         - Key: Name
@@ -22,8 +63,9 @@ Resources:
     Properties:
       VpcId:
         Ref: myVPC
-      CidrBlock: "10.0.1.0/24"
-      AvailabilityZone: "us-east-1a"
+      CidrBlock: 
+        !Ref Subnet1CidrBlock
+      AvailabilityZone: !Ref Subnet1AZ
       Tags:
       - Key: Name
         Value: csye6225-subnet1
@@ -33,8 +75,8 @@ Resources:
     Properties:
       VpcId:
         Ref: myVPC
-      CidrBlock: "10.0.2.0/24"
-      AvailabilityZone: "us-east-1b"
+      CidrBlock: !Ref Subnet2CidrBlock
+      AvailabilityZone: !Ref Subnet2AZ
       Tags:
       - Key: Name
         Value: csye6225-subnet2
@@ -45,8 +87,8 @@ Resources:
     Properties:
       VpcId:
         Ref: myVPC
-      CidrBlock: "10.0.3.0/24"
-      AvailabilityZone: "us-east-1c"
+      CidrBlock: !Ref Subnet3CidrBlock
+      AvailabilityZone: !Ref Subnet3AZ
       Tags:
       - Key: Name
         Value: csye6225-subnet3
@@ -68,7 +110,7 @@ Resources:
     Properties:
       RouteTableId:
         Ref: myRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
+      DestinationCidrBlock: !Ref RouteDestinationCidrBlock
       GatewayId:
         Ref: myInternetGateway
       
