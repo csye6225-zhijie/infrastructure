@@ -1,0 +1,33 @@
+mySubnet1:
+  Type: AWS::EC2::Subnet
+  Properties:
+    VpcId:
+      Ref: myVPC
+    CidrBlock: "10.0.1.0/24"
+    AvailabilityZone: "us-east-1a"
+    Tags:
+    - Keys: name
+      Value: csye6225-subnet1
+
+mySubnet2:
+  Type: AWS::EC2::Subnet
+  Properties:
+    VpcId:
+      Ref: myVPC
+    CidrBlock: "10.0.2.0/24"
+    AvailabilityZone: "us-east-1b"
+    Tags:
+    - Keys: name
+      Value: csye6225-subnet2
+
+
+mySubnet3:
+  Type: AWS::EC2::Subnet
+  Properties:
+    VpcId:
+      Ref: myVPC
+    CidrBlock: "10.0.3.0/24"
+    AvailabilityZone: "us-east-1c"
+    Tags:
+    - Keys: name
+      Value: csye6225-subnet3
