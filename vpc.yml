@@ -83,5 +83,5 @@ Resources:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
-      - Keys: Name
+      - Key: Name
         Value: csye6225-ig-spring2022
