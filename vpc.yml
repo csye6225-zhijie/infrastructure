@@ -55,8 +55,6 @@ Resources:
     Properties:
       VpcId:
         Ref: myVPC
-      # DependsOn:
-      #   mySubnet1
       Tags:
       - Key: Name
         Value: csye6225-RouteTable
@@ -69,6 +67,9 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId:
         Ref: myInternetGateway
+      DependsOn:
+        - myVpcGatewayAttachment
+        - myInternetGateway
 
 
   mySubnetRouteTableAssociation:
@@ -85,3 +86,11 @@ Resources:
       Tags:
       - Key: Name
         Value: csye6225-ig-spring2022
+
+  myVpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId:
+        Ref: myInternetGateway
+      VpcId:
+        Ref: myVPC
