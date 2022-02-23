@@ -24,7 +24,7 @@ Resources:
       CidrBlock: "10.0.1.0/24"
       AvailabilityZone: "us-east-1a"
       Tags:
-      - Keys: name
+      - Keys: Name
         Value: csye6225-subnet1
 
   mySubnet2:
@@ -35,7 +35,7 @@ Resources:
       CidrBlock: "10.0.2.0/24"
       AvailabilityZone: "us-east-1b"
       Tags:
-      - Keys: name
+      - Keys: Name
         Value: csye6225-subnet2
 
 
@@ -47,7 +47,7 @@ Resources:
       CidrBlock: "10.0.3.0/24"
       AvailabilityZone: "us-east-1c"
       Tags:
-      - Keys: name
+      - Keys: Name
         Value: csye6225-subnet3
   
   myRouteTable:
@@ -56,7 +56,7 @@ Resources:
       VpcId:
         Ref: myVPC
       Tags:
-      - Key: name
+      - Key: Name
         Value: csye6225-RouteTable
 
   myRoute: 
@@ -81,5 +81,5 @@ Resources:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
-      - Keys: name
+      - Keys: Name
         Value: csye6225-ig-spring2022
