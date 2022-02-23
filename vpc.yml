@@ -4,6 +4,7 @@ Parameters:
     Description: "CIDR block for VPC"
     Type: String
     Default: "10.0.0.0/16"
+  
 Resources:
   myVPC:
     Type: AWS::EC2::VPC
@@ -73,16 +74,29 @@ Resources:
       
 
 
-  mySubnetRouteTableAssociation:
+  mySubnetRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId:
-        Ref: 
-          - mySubnet1
-          - mySubnet2
-          - mySubnet3
+      SubnetId: 
+        Ref: mySubnet1
       RouteTableId:
         Ref: myRouteTable
+
+  mySubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: 
+        Ref: mySubnet2
+      RouteTableId:
+        Ref: myRouteTable
+
+  mySubnetRouteTableAssociation3:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: 
+        Ref: mySubnet3
+      RouteTableId:
+        Ref: myRouteTable  
 
   myInternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -98,3 +112,11 @@ Resources:
         Ref: myInternetGateway
       VpcId:
         Ref: myVPC
+
+Outputs:
+    VpcId:
+      Description: The VPC Id
+      Value: !Ref myVPC
+    Subnet1Id:
+      Description: mySubnet1 Id 
+      Value: !Ref mySubnet1

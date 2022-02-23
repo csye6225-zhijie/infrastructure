@@ -1,6 +1,0 @@
-myInternetGateway:
-  Type: AWS::EC2::InternetGateway
-  Properties:
-    Tags:
-    - Keys: name
-      Value: csye6225-ig-spring2022
