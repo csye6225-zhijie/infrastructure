@@ -33,7 +33,7 @@ Parameters:
   Subnet2AZ:
     Description: "Subnet2 Availability Zone"
     Type: "String"
-    Default: "us-east-1b"
+    Default: "us-east-1b"  ##Todo change when in us-east-2
   Subnet3CidrBlock:
     Description: "CIDR block for subnet3"
     Type: String
@@ -41,7 +41,7 @@ Parameters:
   Subnet3AZ:
     Description: "Subnet3 Availability Zone"
     Type: "String"
-    Default: "us-east-1c"
+    Default: "us-east-1c"  ##
   RouteDestinationCidrBlock:
     Description: "Destination CidrBlock for route"
     Type: String
