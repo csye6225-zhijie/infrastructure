@@ -5,6 +5,10 @@
 - aws under 'dev'&'prod' account with programmatic access 'dev&demo' IAM-users(access-key-Id pairs) is ready  [In later VM process, use IAM role rather than the credential]
 - vscode 
 
+- Create key-pair for OpenSSH only with .pem
+  1. create new .pem key from AWS
+  2. extract public key from pem file `ssh-keygen -y -f private_key1.pem > public_key1.pub` 
+
 
 ## Building and Deploy Instructions
 1. To start configure, first check  by `aws ec2 describe-vpcs` and remove default AWS profile.

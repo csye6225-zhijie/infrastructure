@@ -54,7 +54,7 @@ Parameters:
   SshKeyName:
     Description: "SSH key-pair for EC2 instance"
     Type: String
-    Default: "6225-sp"
+    Default: "csye6225"
 
 Resources:
   myVPC:
@@ -92,12 +92,12 @@ Resources:
         Ref: mySubnet1
       SecurityGroupIds:
       - Ref: application
-      BlockDeviceMappings: 
-      - DeviceName: "/dev/xvda"
-        Ebs: 
-          VolumeType: "gp2"
-          DeleteOnTermination: "true"
-          VolumeSize: "20"
+      # BlockDeviceMappings: 
+      # - DeviceName: "/dev/xvda"
+      #   Ebs: 
+      #     VolumeType: "gp2"
+      #     DeleteOnTermination: "true"
+      #     VolumeSize: "20"
       Tags:
       - Key: Name
         Value: csye6225-EC2Instance
