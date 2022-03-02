@@ -18,6 +18,11 @@ Parameters:
       - false
     Default: 'true'
 
+  CustomAMI:
+    Description: "AMI build by packer from Amazon Linux"
+    Type: String
+    Default: "ami-009bbe793b15c4aca"
+
   Subnet1CidrBlock:
     Description: "CIDR block for subnet1"
     Type: String
@@ -46,6 +51,11 @@ Parameters:
     Description: "Destination CidrBlock for route"
     Type: String
     Default: "0.0.0.0/0"
+  SshKeyName:
+    Description: "SSH key-pair for EC2 instance"
+    Type: String
+    Default: "6225-sp"
+
 Resources:
   myVPC:
     Type: AWS::EC2::VPC
@@ -70,6 +80,28 @@ Resources:
       - Key: Name
         Value: csye6225-subnet1
 
+    
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: "false"
+      ImageId: !Ref CustomAMI
+      InstanceType: "t2.micro"
+      KeyName: !Ref SshKeyName
+      SubnetId:
+        Ref: mySubnet1
+      SecurityGroupIds:
+      - Ref: application
+      BlockDeviceMappings: 
+      - DeviceName: "/dev/xvda"
+        Ebs: 
+          VolumeType: "gp2"
+          DeleteOnTermination: "true"
+          VolumeSize: "20"
+      Tags:
+      - Key: Name
+        Value: csye6225-EC2Instance
+
   mySubnet2:
     Type: AWS::EC2::Subnet
     Properties:
@@ -80,7 +112,6 @@ Resources:
       Tags:
       - Key: Name
         Value: csye6225-subnet2
-
 
   mySubnet3:
     Type: AWS::EC2::Subnet
@@ -102,6 +133,7 @@ Resources:
       - Key: Name
         Value: csye6225-RouteTable
 
+
   myRoute: 
     Type: AWS::EC2::Route
     DependsOn:
@@ -114,7 +146,6 @@ Resources:
       GatewayId:
         Ref: myInternetGateway
       
-
 
   mySubnetRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -154,6 +185,70 @@ Resources:
         Ref: myInternetGateway
       VpcId:
         Ref: myVPC
+
+  application:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "SecurityGroup for EC2 instance"
+      VpcId:
+        Ref: myVPC #
+      GroupName: "application"
+
+  HttpIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: "http"
+      GroupId: 
+        Ref: application
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIp: 0.0.0.0/0
+
+  SshIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: "ssh"
+      GroupId: 
+        Ref: application
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 0.0.0.0/0
+
+  HttpsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: "Https"
+      GroupId: 
+        Ref: application
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 0.0.0.0/0
+
+  WebappIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: "For Java app"
+      GroupId: 
+        Ref: application
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+      CidrIp: 0.0.0.0/0
+
+  sgEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: "Permit all"
+      GroupId: 
+        Ref: application
+      IpProtocol: "-1"
+      FromPort: 0
+      ToPort: 0
+      CidrIp: 0.0.0.0/0
+
 
 Outputs:
     VpcId:
