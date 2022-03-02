@@ -76,6 +76,7 @@ Resources:
       CidrBlock: 
         !Ref Subnet1CidrBlock
       AvailabilityZone: !Ref Subnet1AZ
+      MapPublicIpOnLaunch: true
       Tags:
       - Key: Name
         Value: csye6225-subnet1
@@ -109,6 +110,7 @@ Resources:
         Ref: myVPC
       CidrBlock: !Ref Subnet2CidrBlock
       AvailabilityZone: !Ref Subnet2AZ
+      MapPublicIpOnLaunch: true
       Tags:
       - Key: Name
         Value: csye6225-subnet2
