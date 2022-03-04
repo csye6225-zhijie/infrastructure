@@ -16,11 +16,16 @@
 3. in ZSH, set env variable by `export AWS_PROFILE=${current_account}` and `export AWS_REGION=us-east-1`
 4. Validate template syntax by `aws cloudformation validate-template --template-body file://csye6225-infra.yml`
 
-5. During create-vpc, `--dry-run` act like status check
-6. cd into repo of infrastructure, run `aws cloudformation create-stack --stack-name ${myvpc} --template-body file://csye6225-infra.yml --parameters ParameterKey=VpcCidrBlock,ParameterValue="10.1.1.0/24"` 
+**Demo4**
+1. Create Stack and EC2 instance `aws cloudformation create-stack --stack-name demo-ec2 --template-body file://csye6225-infra.yml --parameters ParameterKey=CustomAMI,ParameterValue="${ami-id}"`
+   
+
+**Bellow for Demo3**
+1. During create-vpc, `--dry-run` act like status check
+2. cd into repo of infrastructure, run `aws cloudformation create-stack --stack-name ${myvpc} --template-body file://csye6225-infra.yml --parameters ParameterKey=VpcCidrBlock,ParameterValue="10.1.1.0/24"` 
    Name stack-name as 'csye6225-dev' or 'csye6225-prod' 
     Update by `aws cloudformation update-stack ...`
-7. If switch to 'us-east-2' region, `--parameters ParameterKey=Subnet1AZ,ParameterValue="us-east-2a" ParameterKey=Subnet2AZ,ParameterValue="us-east-2b" ParameterKey=Subnet3AZ,ParameterValue="us-east-2c"`
-8. To clear the whole stack, `aws cloudformation delete-stack --stack-name <name>`
-9. After finish work with the infra, clear keys configured in ./aws/
+3. If switch to 'us-east-2' region, `--parameters ParameterKey=Subnet1AZ,ParameterValue="us-east-2a" ParameterKey=Subnet2AZ,ParameterValue="us-east-2b" ParameterKey=Subnet3AZ,ParameterValue="us-east-2c"`
+4. To clear the whole stack, `aws cloudformation delete-stack --stack-name <name>`
+5. After finish work with the infra, clear keys configured in ./aws/
    

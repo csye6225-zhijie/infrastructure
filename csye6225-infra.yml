@@ -93,12 +93,12 @@ Resources:
         Ref: mySubnet1
       SecurityGroupIds:
       - Ref: application
-      # BlockDeviceMappings: 
-      # - DeviceName: "/dev/xvda"
-      #   Ebs: 
-      #     VolumeType: "gp2"
-      #     DeleteOnTermination: "true"
-      #     VolumeSize: "20"
+      BlockDeviceMappings: 
+      - DeviceName: "/dev/xvda"
+        Ebs: 
+          VolumeType: "gp2"
+          DeleteOnTermination: "true"
+          VolumeSize: "20"
       Tags:
       - Key: Name
         Value: csye6225-EC2Instance
