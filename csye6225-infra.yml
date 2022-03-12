@@ -4,52 +4,33 @@ Parameters:
     Description: "CIDR block for VPC"
     Type: String
     Default: "10.0.0.0/16"
-  # VpcEnableDnsSupport:
-  #   Type: String
-  #   AllowedValues:
-  #     - true
-  #     - false
-  #   Default: 'true'
-  # VpcEnableDnsHostnames:
-  #   Description: "Enable DNS hostname, and need DNS support as true"
-  #   Type: String
-  #   AllowedValues:
-  #     - true
-  #     - false
-  #   Default: 'true'
 
   CustomAMI:
     Description: "AMI build by packer from Amazon Linux"
     Type: String
-    Default: "ami-009bbe793b15c4aca"
+    Default: "ami-060c73a937393992a"
 
-  Subnet1CidrBlock:
-    Description: "CIDR block for subnet1"
+  CidrBlock1:
     Type: String
     Default: "10.0.1.0/24"
 
-  Subnet1AZ:
-    Description: "Subnet1 Availability Zone"
+  AZ1:
     Type: "String"
     Default: "us-east-1a"
 
-  Subnet2CidrBlock:
-    Description: "CIDR block for subnet2"
+  CidrBlock2:
     Type: String
     Default: "10.0.2.0/24"
 
-  Subnet2AZ:
-    Description: "Subnet2 Availability Zone"
+  AZ2:
     Type: "String"
     Default: "us-east-1b"
 
-  Subnet3CidrBlock:
-    Description: "CIDR block for subnet3"
+  CidrBlock3:
     Type: String
     Default: "10.0.3.0/24"
 
-  Subnet3AZ:
-    Description: "Subnet3 Availability Zone"
+  AZ3:
     Type: "String"
     Default: "us-east-1c"  
 
@@ -57,6 +38,18 @@ Parameters:
     Description: "Destination CidrBlock for route"
     Type: String
     Default: "0.0.0.0/0"
+
+  CidrBlock4:
+    Type: String
+    Default: "10.0.4.0/24"
+
+  CidrBlock5:
+    Type: String
+    Default: "10.0.5.0/24"
+
+  CidrBlock6:
+    Type: String
+    Default: "10.0.6.0/24"
 
   SshKeyName:
     Description: "SSH key-pair for EC2 instance"
@@ -68,16 +61,13 @@ Parameters:
     Type: String
     Default: "dev"
 
-  BucketName:
-    Description: ""
-    Type: String
-    Default: !Sub csye6225.${EnvironmentName}.zhijie-li.me
-
   DBUsername:
     Type: String
+    Default: "csye6225"
 
   DBUserPassword:
     Type: String
+    Default: "CSYE_6225"
 
 Resources:
   myVPC:
@@ -90,14 +80,13 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref AWS::StackName
-
-      
+    
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       DisableApiTermination: "false"
       IamInstanceProfile: 
-        Ref: instanceProfile
+        Ref: ec2InstanceProfile
       ImageId: !Ref CustomAMI
       InstanceType: "t2.micro"
       KeyName: !Ref SshKeyName
@@ -112,16 +101,35 @@ Resources:
           DeleteOnTermination: "true"
           VolumeSize: "20"
       UserData: 
-        Fn::Base64: 
-          !Sub |
+        Fn::Base64: !Sub |
             #!/bin/bash
-            yum update -y #example command
-            # linux command 
+            yum update -y
+            cloud-init status --wait
+
+            cat >csye/application.properties <<EOF
+            amazon.s3.bucket-name=${!Sub csye6225.${EnvironmentName}.zhijie-li.me}
+
+            ##Schema
+            spring.jpa.hibernate.ddl-auto=update
+            spring.jpa.show-sql=true
+
+            ## RDS Config
+            spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+            spring.datasource.username=${DBUsername}
+            spring.datasource.password=${DBUserPassword}
+            spring.datasource.url=${!GetAtt Endpoint.Address}:3306/csye6225?useSSL=false&allowPublicKeyRetrieval=true
+            
+            EOF
+
+            ## Restart our service
+            sudo systemctl enable application.service
+            sudo systemctl start application.service
+
       Tags:
       - Key: Name
         Value: csye6225-EC2Instance
 
-  EC2-CSYE6225:
+  ec2InstanceRole:
     Type: AWS::IAM::Role
     Properties: 
       AssumeRolePolicyDocument: 
@@ -134,18 +142,35 @@ Resources:
             Action:
               - 'sts:AssumeRole'
       Description: "Allow application traffic into rds"
-      Policies: 
-        - Ref: webAppS3Policy
+      # Policies: 
+      #   - Ref: webAppS3Policy
       RoleName: EC2-CSYE6225
-        # Tags: 
-        #   - Tag
 
-  instanceProfile:
+  ec2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties: 
-      InstanceProfileName: instanceProfile
+      InstanceProfileName: ec2InstanceProfile
       Roles: 
-        - Ref: EC2-CSYE6225
+        - Ref: ec2InstanceRole
+
+  webAppS3Policy:
+    Type: AWS::IAM::Policy
+    DependsOn: ec2InstanceRole
+    Properties:
+      PolicyName: webAppS3
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:GetObject'
+              - 's3:PostObject'
+              - 's3:DeleteObject'
+            Effect: Allow
+            Resource:  
+              - 'arn:aws:s3:::${!Sub csye6225.${EnvironmentName}.zhijie-li.me}'
+              - 'arn:aws:s3:::${!Sub csye6225.${EnvironmentName}.zhijie-li.me}/*'
+      Roles: 
+        - !Ref ec2InstanceRole
     
   publicSubnet1:
     Type: AWS::EC2::Subnet
@@ -153,8 +178,8 @@ Resources:
       VpcId:
         Ref: myVPC
       CidrBlock: 
-        !Ref Subnet1CidrBlock
-      AvailabilityZone: !Ref Subnet1AZ
+        !Ref CidrBlock1
+      AvailabilityZone: !Ref AZ1
       MapPublicIpOnLaunch: true
       Tags:
       - Key: Name
@@ -165,8 +190,8 @@ Resources:
     Properties:
       VpcId:
         Ref: myVPC
-      CidrBlock: !Ref Subnet2CidrBlock
-      AvailabilityZone: !Ref Subnet2AZ
+      CidrBlock: !Ref CidrBlock2
+      AvailabilityZone: !Ref AZ2
       MapPublicIpOnLaunch: true
       Tags:
       - Key: Name
@@ -177,8 +202,8 @@ Resources:
     Properties:
       VpcId:
         Ref: myVPC
-      CidrBlock: !Ref Subnet3CidrBlock
-      AvailabilityZone: !Ref Subnet3AZ
+      CidrBlock: !Ref CidrBlock3
+      AvailabilityZone: !Ref AZ3
       MapPublicIpOnLaunch: true
       Tags:
       - Key: Name
@@ -189,8 +214,8 @@ Resources:
     Properties:
       VpcId:
         Ref: myVPC
-      CidrBlock: !Ref Subnet1CidrBlock
-      AvailabilityZone: !Ref Subnet1AZ
+      CidrBlock: !Ref CidrBlock4
+      AvailabilityZone: !Ref AZ1
       MapPublicIpOnLaunch: false
       Tags:
       - Key: Name
@@ -201,8 +226,8 @@ Resources:
     Properties:
       VpcId:
         Ref: myVPC
-      CidrBlock: !Ref Subnet2CidrBlock
-      AvailabilityZone: !Ref Subnet2AZ
+      CidrBlock: !Ref CidrBlock5
+      AvailabilityZone: !Ref AZ2
       MapPublicIpOnLaunch: false
       Tags:
       - Key: Name
@@ -213,8 +238,8 @@ Resources:
     Properties:
       VpcId:
         Ref: myVPC
-      CidrBlock: !Ref Subnet3CidrBlock
-      AvailabilityZone: !Ref Subnet3AZ
+      CidrBlock: !Ref CidrBlock6
+      AvailabilityZone: !Ref AZ3
       MapPublicIpOnLaunch: false
       Tags:
       - Key: Name
@@ -252,15 +277,12 @@ Resources:
 
   privateRoute:
     Type: AWS::EC2::Route
-    DependsOn:
-      - myVpcGatewayAttachment
-      - myInternetGateway
     Properties:
+      DestinationCidrBlock: !Ref CidrBlock1
       RouteTableId:
         Ref: privateRouteTable
-      # DestinationCidrBlock: !Ref RouteDestinationCidrBlock
-      GatewayId:
-        Ref: myInternetGateway  
+      NatGatewayId:
+        Ref: privateSubnetNatGateway
 
   publicSubnetRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -325,7 +347,13 @@ Resources:
       VpcId:
         Ref: myVPC
 
-  application:
+  privateSubnetNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties: 
+      ConnectivityType: private
+      SubnetId: !Ref privateSubnet1
+
+  applicationSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: "SecurityGroup for EC2 instance"
@@ -388,7 +416,7 @@ Resources:
       ToPort: 0
       CidrIp: 0.0.0.0/0
 
-  database:
+  databaseSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: "SecurityGroup for Database"
@@ -399,7 +427,7 @@ Resources:
   mysqlIngress:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      Description: "For mysql"
+      Description: "mysql"
       GroupId: 
         Ref: database
       IpProtocol: tcp
@@ -410,10 +438,11 @@ Resources:
 
   s3Bucket:
     Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
     Properties: 
-      BucketEncryption: SSE-S3
+      AccessControl: Private
       BucketName: 
-        !Ref BucketName
+        !Sub csye6225.${EnvironmentName}.zhijie-li.me
       LifecycleConfiguration:
         Rules:
           - Id: STANDARD_IA_Rule
@@ -422,40 +451,21 @@ Resources:
             Transitions:
               - TransitionInDays: 30
                 StorageClass: STANDARD_IA
-          
-
-  webAppS3Policy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref s3Bucket
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Action:
-              - 's3:Get*'
-              - 's3:Post*'
-              - 's3:Delete*'
-            Effect: Allow
-            Resource: !Sub
-              - 'arn:aws:s3:::{BucketName}',
-              - 'arn:aws:s3:::{BucketName}/*'
-
-  encryptedS3Bucket:
-    Type: 'AWS::S3::Bucket'
-    Properties:
-      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'AES256'
-              KMSMasterKeyID: KMS-KEY-ARN
-    DeletionPolicy: Delete
-
+        
   rdsParameterGroup:
     Type: 'AWS::RDS::DBParameterGroup'
     Properties:
       Description: "RDS of MySQL Parameter Group"
-      Family: mysql5.7
+      Family: mysql8.0
     # Parameters:
 
   rdsInstance:
@@ -463,7 +473,6 @@ Resources:
     Properties:
       DBInstanceIdentifier: "csye6225"
       DBName: "csye6225"
-      # !Ref DBName
       Engine: "mysql"
       DBInstanceClass: "db.t3.micro"
       DBParameterGroupName: 
@@ -471,12 +480,24 @@ Resources:
       AllocatedStorage: "10"
       PubliclyAccessible: false
       MultiAZ: false
-      AvailabilityZone: 'us-east-1'
-      MasterUsername: "csye6225"
-      MasterUserPassword: ""
+      AvailabilityZone: 'us-east-1a'
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBUserPassword
       DBSubnetGroupName: 
+        !Ref rdsSubnetGroup
       VPCSecurityGroups:
         - Ref: database
+
+  rdsSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: 
+      DBSubnetGroupDescription: "Private subnetGroup for RDS"
+      DBSubnetGroupName: rdsSubnetGroup
+      SubnetIds: 
+        - Ref: privateSubnet1
+        - Ref: privateSubnet2 
+        - Ref: privateSubnet3
+
 
 Outputs:
   VpcId:
