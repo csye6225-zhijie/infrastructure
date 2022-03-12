@@ -275,15 +275,6 @@ Resources:
       GatewayId:
         Ref: myInternetGateway
 
-  privateRoute:
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: !Ref CidrBlock1
-      RouteTableId:
-        Ref: privateRouteTable
-      NatGatewayId:
-        Ref: privateSubnetNatGateway
-
   publicSubnetRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -346,12 +337,6 @@ Resources:
         Ref: myInternetGateway
       VpcId:
         Ref: myVPC
-
-  privateSubnetNatGateway:
-    Type: AWS::EC2::NatGateway
-    Properties: 
-      ConnectivityType: private
-      SubnetId: !Ref privateSubnet1
 
   applicationSG:
     Type: AWS::EC2::SecurityGroup
