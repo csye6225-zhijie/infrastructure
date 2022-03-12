@@ -93,7 +93,7 @@ Resources:
       SubnetId:
         Ref: publicSubnet1
       SecurityGroupIds:
-      - Ref: application
+      - Ref: applicationSG
       BlockDeviceMappings: 
       - DeviceName: "/dev/xvda"
         Ebs: 
@@ -358,7 +358,7 @@ Resources:
     Properties:
       GroupDescription: "SecurityGroup for EC2 instance"
       VpcId:
-        Ref: myVPC #
+        Ref: myVPC
       GroupName: "application"
 
   httpIngress:
@@ -366,7 +366,7 @@ Resources:
     Properties:
       Description: "http"
       GroupId: 
-        Ref: application
+        Ref: applicationSG
       IpProtocol: tcp
       FromPort: 80
       ToPort: 80
@@ -377,7 +377,7 @@ Resources:
     Properties:
       Description: "ssh"
       GroupId: 
-        Ref: application
+        Ref: applicationSG
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
@@ -388,7 +388,7 @@ Resources:
     Properties:
       Description: "Https"
       GroupId: 
-        Ref: application
+        Ref: applicationSG
       IpProtocol: tcp
       FromPort: 443
       ToPort: 443
@@ -399,7 +399,7 @@ Resources:
     Properties:
       Description: "For Java app"
       GroupId: 
-        Ref: application
+        Ref: applicationSG
       IpProtocol: tcp
       FromPort: 8080
       ToPort: 8080
@@ -410,7 +410,7 @@ Resources:
     Properties:
       Description: "Permit all"
       GroupId: 
-        Ref: application
+        Ref: applicationSG
       IpProtocol: "-1"
       FromPort: 0
       ToPort: 0
@@ -429,12 +429,12 @@ Resources:
     Properties:
       Description: "mysql"
       GroupId: 
-        Ref: database
+        Ref: databaseSG
       IpProtocol: tcp
       FromPort: 3306
       ToPort: 3306
       SourceSecurityGroupId: 
-        Ref: application
+        Ref: applicationSG
 
   s3Bucket:
     Type: AWS::S3::Bucket
@@ -486,7 +486,7 @@ Resources:
       DBSubnetGroupName: 
         !Ref rdsSubnetGroup
       VPCSecurityGroups:
-        - Ref: database
+        - Ref: databaseSG
 
   rdsSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
