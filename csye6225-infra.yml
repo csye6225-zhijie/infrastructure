@@ -103,22 +103,22 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
             #!/bin/bash
-            yum update -y
-            cloud-init status --wait
+            sudo yum update -y
+            # sudo cloud-init status --wait
 
-            cat >csye/application.properties <<EOF
-            amazon.s3.bucket-name=${!Sub csye6225.${EnvironmentName}.zhijie-li.me}
+            cat >>csye/application.properties <<EOF
+            amazon.s3.bucket-name=csye6225.${EnvironmentName}.zhijie-li.me
 
-            ##Schema
-            spring.jpa.hibernate.ddl-auto=update
-            spring.jpa.show-sql=true
-
-            ## RDS Config
+            ## RDS Config 
             spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
             spring.datasource.username=${DBUsername}
             spring.datasource.password=${DBUserPassword}
-            spring.datasource.url=${!GetAtt Endpoint.Address}:3306/csye6225?useSSL=false&allowPublicKeyRetrieval=true
-            
+            spring.datasource.url=jdbc:mysql://${rdsInstance.Endpoint.Address}:3306/csye6225?useSSL=false&allowPublicKeyRetrieval=true
+
+            spring.autoconfigure.exclude=\
+              org.springframework.cloud.aws.autoconfigure.context.ContextInstanceDataAutoConfiguration,\
+              org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration,\
+              org.springframework.cloud.aws.autoconfigure.context.ContextRegionProviderAutoConfiguration
             EOF
 
             ## Restart our service
@@ -127,7 +127,7 @@ Resources:
 
       Tags:
       - Key: Name
-        Value: csye6225-EC2Instance
+        Value: csye6225-EC2Instance 
 
   ec2InstanceRole:
     Type: AWS::IAM::Role
@@ -163,12 +163,12 @@ Resources:
         Statement:
           - Action:
               - 's3:GetObject'
-              - 's3:PostObject'
+              - 's3:PutObject'
               - 's3:DeleteObject'
             Effect: Allow
             Resource:  
-              - 'arn:aws:s3:::${!Sub csye6225.${EnvironmentName}.zhijie-li.me}'
-              - 'arn:aws:s3:::${!Sub csye6225.${EnvironmentName}.zhijie-li.me}/*'
+              - !Sub 'arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me'
+              - !Sub 'arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me/*'
       Roles: 
         - !Ref ec2InstanceRole
     
@@ -494,3 +494,6 @@ Outputs:
   RdsSubnetId:
     Description: Subnet Id for Rds instance
     Value: !Ref privateSubnet1
+  DatabaseHostname:
+    Description: Database url
+    Value: !GetAtt rdsInstance.Endpoint.Address
