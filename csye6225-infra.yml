@@ -103,22 +103,15 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
             #!/bin/bash
-            sudo yum update -y
-            # sudo cloud-init status --wait
+            sudo mkdir /home/ec2-user/test
 
-            cat >>csye/application.properties <<EOF
+            cat >>/home/ec2-user/csye/application.properties <<EOF
             amazon.s3.bucket-name=csye6225.${EnvironmentName}.zhijie-li.me
-
-            ## RDS Config 
+            ## RDS Config
             spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
             spring.datasource.username=${DBUsername}
             spring.datasource.password=${DBUserPassword}
             spring.datasource.url=jdbc:mysql://${rdsInstance.Endpoint.Address}:3306/csye6225?useSSL=false&allowPublicKeyRetrieval=true
-
-            spring.autoconfigure.exclude=\
-              org.springframework.cloud.aws.autoconfigure.context.ContextInstanceDataAutoConfiguration,\
-              org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration,\
-              org.springframework.cloud.aws.autoconfigure.context.ContextRegionProviderAutoConfiguration
             EOF
 
             ## Restart our service
