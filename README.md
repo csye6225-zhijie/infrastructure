@@ -19,6 +19,13 @@
 **Demo5**
 `aws cloudformation create-stack --stack-name demo --template-body file://csye6225-infra.yml --parameters ParameterKey=EnvironmentName,ParameterValue="dev" ParameterKey=CustomAMI,ParameterValue="ami-05b391420c84bfa6a" ParameterKey=DBUserPassword,ParameterValue="CSYE_6225" --capabilities CAPABILITY_NAMED_IAM`
 
+aws cloudformation create-stack --stack-name demo \
+    --template-body file://csye6225-infra.yml \
+    --parameters ParameterKey=EnvironmentName,ParameterValue="prod" \
+    ParameterKey=CustomAMI,ParameterValue="ami-0854b39f739db6599" \
+    ParameterKey=UserData,ParameterValue=$(base64 -w0 userdata.sh) \ 
+    --capabilities CAPABILITY_NAMED_IAM
+    
 **Demo4**
 1. Create Stack and EC2 instance `aws cloudformation create-stack --stack-name demo-ec2 --template-body file://csye6225-infra.yml --parameters ParameterKey=CustomAMI,ParameterValue="${ami-id}"`
    

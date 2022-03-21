@@ -93,7 +93,7 @@ Resources:
       SubnetId:
         Ref: publicSubnet1
       SecurityGroupIds:
-      - Ref: application
+      - Ref: applicationSG
       BlockDeviceMappings: 
       - DeviceName: "/dev/xvda"
         Ebs: 
@@ -103,22 +103,15 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
             #!/bin/bash
-            yum update -y
-            cloud-init status --wait
+            sudo mkdir /home/ec2-user/test
 
-            cat >csye/application.properties <<EOF
-            amazon.s3.bucket-name=${!Sub csye6225.${EnvironmentName}.zhijie-li.me}
-
-            ##Schema
-            spring.jpa.hibernate.ddl-auto=update
-            spring.jpa.show-sql=true
-
+            cat >>/home/ec2-user/csye/application.properties <<EOF
+            amazon.s3.bucket-name=csye6225.${EnvironmentName}.zhijie-li.me
             ## RDS Config
             spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
             spring.datasource.username=${DBUsername}
             spring.datasource.password=${DBUserPassword}
-            spring.datasource.url=${!GetAtt Endpoint.Address}:3306/csye6225?useSSL=false&allowPublicKeyRetrieval=true
-            
+            spring.datasource.url=jdbc:mysql://${rdsInstance.Endpoint.Address}:3306/csye6225?useSSL=false&allowPublicKeyRetrieval=true
             EOF
 
             ## Restart our service
@@ -127,7 +120,7 @@ Resources:
 
       Tags:
       - Key: Name
-        Value: csye6225-EC2Instance
+        Value: csye6225-EC2Instance 
 
   ec2InstanceRole:
     Type: AWS::IAM::Role
@@ -163,12 +156,12 @@ Resources:
         Statement:
           - Action:
               - 's3:GetObject'
-              - 's3:PostObject'
+              - 's3:PutObject'
               - 's3:DeleteObject'
             Effect: Allow
             Resource:  
-              - 'arn:aws:s3:::${!Sub csye6225.${EnvironmentName}.zhijie-li.me}'
-              - 'arn:aws:s3:::${!Sub csye6225.${EnvironmentName}.zhijie-li.me}/*'
+              - !Sub 'arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me'
+              - !Sub 'arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me/*'
       Roles: 
         - !Ref ec2InstanceRole
     
@@ -275,15 +268,6 @@ Resources:
       GatewayId:
         Ref: myInternetGateway
 
-  privateRoute:
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: !Ref CidrBlock1
-      RouteTableId:
-        Ref: privateRouteTable
-      NatGatewayId:
-        Ref: privateSubnetNatGateway
-
   publicSubnetRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -347,18 +331,12 @@ Resources:
       VpcId:
         Ref: myVPC
 
-  privateSubnetNatGateway:
-    Type: AWS::EC2::NatGateway
-    Properties: 
-      ConnectivityType: private
-      SubnetId: !Ref privateSubnet1
-
   applicationSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: "SecurityGroup for EC2 instance"
       VpcId:
-        Ref: myVPC #
+        Ref: myVPC
       GroupName: "application"
 
   httpIngress:
@@ -366,7 +344,7 @@ Resources:
     Properties:
       Description: "http"
       GroupId: 
-        Ref: application
+        Ref: applicationSG
       IpProtocol: tcp
       FromPort: 80
       ToPort: 80
@@ -377,7 +355,7 @@ Resources:
     Properties:
       Description: "ssh"
       GroupId: 
-        Ref: application
+        Ref: applicationSG
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
@@ -388,7 +366,7 @@ Resources:
     Properties:
       Description: "Https"
       GroupId: 
-        Ref: application
+        Ref: applicationSG
       IpProtocol: tcp
       FromPort: 443
       ToPort: 443
@@ -399,7 +377,7 @@ Resources:
     Properties:
       Description: "For Java app"
       GroupId: 
-        Ref: application
+        Ref: applicationSG
       IpProtocol: tcp
       FromPort: 8080
       ToPort: 8080
@@ -410,7 +388,7 @@ Resources:
     Properties:
       Description: "Permit all"
       GroupId: 
-        Ref: application
+        Ref: applicationSG
       IpProtocol: "-1"
       FromPort: 0
       ToPort: 0
@@ -429,12 +407,12 @@ Resources:
     Properties:
       Description: "mysql"
       GroupId: 
-        Ref: database
+        Ref: databaseSG
       IpProtocol: tcp
       FromPort: 3306
       ToPort: 3306
       SourceSecurityGroupId: 
-        Ref: application
+        Ref: applicationSG
 
   s3Bucket:
     Type: AWS::S3::Bucket
@@ -486,7 +464,7 @@ Resources:
       DBSubnetGroupName: 
         !Ref rdsSubnetGroup
       VPCSecurityGroups:
-        - Ref: database
+        - Ref: databaseSG
 
   rdsSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -509,3 +487,6 @@ Outputs:
   RdsSubnetId:
     Description: Subnet Id for Rds instance
     Value: !Ref privateSubnet1
+  DatabaseHostname:
+    Description: Database url
+    Value: !GetAtt rdsInstance.Endpoint.Address
