@@ -80,47 +80,212 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref AWS::StackName
-    
-  EC2Instance:
-    Type: AWS::EC2::Instance
+
+  asgLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
     Properties:
-      DisableApiTermination: "false"
-      IamInstanceProfile: 
-        Ref: ec2InstanceProfile
-      ImageId: !Ref CustomAMI
-      InstanceType: "t2.micro"
-      KeyName: !Ref SshKeyName
-      SubnetId:
-        Ref: publicSubnet1
-      SecurityGroupIds:
-      - Ref: applicationSG
-      BlockDeviceMappings: 
-      - DeviceName: "/dev/xvda"
-        Ebs: 
-          VolumeType: "gp2"
-          DeleteOnTermination: "true"
-          VolumeSize: "20"
-      UserData: 
-        Fn::Base64: !Sub |
-            #!/bin/bash
-            sudo mkdir /home/ec2-user/test
+      LaunchTemplateName: !Sub '${AWS::StackName}-launch-template'
+      LaunchTemplateData:
+        BlockDeviceMappings:
+        - DeviceName: /dev/sda1  #
+          Ebs:
+            VolumeSize: 20
+            VolumeType: "gp3"
+            DeleteOnTermination: true
+        ImageId: !Ref CustomAMI
+        InstanceType: t2.micro
+        KeyName: !Ref SshKeyName
+        SecurityGroupIds:
+         - Ref: applicationSG
+        IamInstanceProfile:
+          Name: !Ref ec2InstanceProfile
+        # resourceName:
+        UserData: 
+          Fn::Base64: !Sub |
+              #!/bin/bash
+              sudo mkdir /home/ec2-user/test
 
-            cat >>/home/ec2-user/csye/application.properties <<EOF
-            amazon.s3.bucket-name=csye6225.${EnvironmentName}.zhijie-li.me
-            ## RDS Config
-            spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
-            spring.datasource.username=${DBUsername}
-            spring.datasource.password=${DBUserPassword}
-            spring.datasource.url=jdbc:mysql://${rdsInstance.Endpoint.Address}:3306/csye6225?useSSL=false&allowPublicKeyRetrieval=true
-            EOF
+              cat >>/home/ec2-user/csye/application.properties <<EOF
+              amazon.s3.bucket-name=csye6225.${EnvironmentName}.zhijie-li.me
+              ## RDS Config
+              spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+              spring.datasource.username=${DBUsername}
+              spring.datasource.password=${DBUserPassword}
+              spring.datasource.url=jdbc:mysql://${rdsInstance.Endpoint.Address}:3306/csye6225?useSSL=false&allowPublicKeyRetrieval=true
+              EOF
 
-            ## Restart our service
-            sudo systemctl enable application.service
-            sudo systemctl start application.service
+              ## Restart our service
+              sudo systemctl enable application.service
+              sudo systemctl start application.service
 
+  asgWebApp:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    # DependsOn: !Ref myVpcGatewayAttachment
+    Properties:
+      AutoScalingGroupName: !Sub ${AWS::StackName}-asg
+      AvailabilityZones:
+        - us-east-1a
+        - us-east-1b
+        - us-east-1c
+      Cooldown: '60'
+      DesiredCapacity: '1'
+      HealthCheckGracePeriod: 90
+      HealthCheckType: EC2
+      LaunchTemplate:
+        LaunchTemplateId: !Ref asgLaunchTemplate
+        Version: !GetAtt asgLaunchTemplate.LatestVersionNumber
+      # LoadBalancerNames:
+      #   - String
+      MaxSize: '5'
+      MinSize: '1'
+      NewInstancesProtectedFromScaleIn: true
       Tags:
-      - Key: Name
-        Value: csye6225-EC2Instance 
+        - Key: Application
+          Value: WebApp
+          PropagateAtLaunch: "true"
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-asg
+          PropagateAtLaunch: "true"
+      TargetGroupARNs:
+        - !Ref loadBalancerTargetGroup
+      VPCZoneIdentifier:
+        - Ref: publicSubnet1
+        - Ref: publicSubnet2
+        - Ref: publicSubnet3
+
+  asgCPUPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref asgWebApp
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 4.0
+
+  asgCPUScaleInPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref asgWebApp
+      PolicyType: StepScaling
+      MetricAggregationType: Average
+      EstimatedInstanceWarmup: 60
+      StepAdjustments: 
+        - MetricIntervalLowerBound: -3
+          MetricIntervalUpperBound: 0
+          ScalingAdjustment: -1
+
+  asgScaleInAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      EvaluationPeriods: '1'
+      Statistic: Average
+      Threshold: '3'
+      AlarmDescription: Scale up alarm when CPU usage > 3% for 20s
+      Period: '20'
+      AlarmActions:
+      - !Ref asgCPUScaleInPolicy
+      Namespace: AWS/AutoScaling
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref asgWebApp
+      ComparisonOperator: LessThanThreshold
+      MetricName: CPUUtilization
+
+  asgCPUScaleOutPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref asgWebApp
+      PolicyType: StepScaling
+      MetricAggregationType: Average
+      EstimatedInstanceWarmup: 60
+      StepAdjustments: 
+        - MetricIntervalLowerBound: 0.0
+          MetricIntervalUpperBound: 50.0
+          ScalingAdjustment: 1
+
+  asgScaleOutAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      EvaluationPeriods: '1'
+      Statistic: Average
+      Threshold: '5'
+      AlarmDescription: Scale up alarm when CPU usage > 5% for 20s
+      Period: '20'
+      AlarmActions:
+      - !Ref asgCPUScaleOutPolicy
+      Namespace: AWS/AutoScaling
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref asgWebApp
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+
+  loadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+      Name: !Sub ${AWS::StackName}-load-balancer
+      Scheme: internet-facing
+      SecurityGroups:
+       - Ref: loadBalancerSG
+      Subnets:
+        - Ref: publicSubnet1
+        - Ref: publicSubnet2
+        - Ref: publicSubnet3
+      Tags:
+        - Key: Application
+          Value: WebApp
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-load-balancer
+      Type: application
+
+  loadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 90
+      HealthCheckPath: '/healthz"'   
+      HealthCheckPort: '8080'
+      HealthCheckProtocol: 'HTTP'
+      HealthCheckTimeoutSeconds: 60
+      HealthyThresholdCount: 2
+      IpAddressType: ipv4
+      Name: !Sub ${AWS::StackName}-lb-tg
+      Port: 8080
+      Protocol: 'HTTP'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lb-tg
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '20'
+      TargetType: instance
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref myVPC
+
+  loadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref loadBalancerTargetGroup
+      LoadBalancerArn: !Ref loadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  myDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: Z08918562D3JJ9PVPT8I1
+      Comment: DNS name routes traffic to load balancer.
+      Name: !Sub "${EnvironmentName}.zhijie-li.me"
+      Type: "A"
+      TTL: 60
+      ResourceRecords:
+      - !GetAtt loadBalancer.DNSName
 
   ec2InstanceRole:
     Type: AWS::IAM::Role
@@ -331,6 +496,36 @@ Resources:
       VpcId:
         Ref: myVPC
 
+  loadBalancerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "SecurityGroup for load Balancer"
+      VpcId:
+        Ref: myVPC
+      GroupName: "loadBalancer"
+
+  httpIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: "http"
+      GroupId: 
+        Ref: loadBalancerSG
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIp: 0.0.0.0/0
+
+  httpsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: "Https"
+      GroupId: 
+        Ref: loadBalancerSG
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 0.0.0.0/0
+
   applicationSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -338,17 +533,6 @@ Resources:
       VpcId:
         Ref: myVPC
       GroupName: "application"
-
-  httpIngress:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      Description: "http"
-      GroupId: 
-        Ref: applicationSG
-      IpProtocol: tcp
-      FromPort: 80
-      ToPort: 80
-      CidrIp: 0.0.0.0/0
 
   sshIngress:
     Type: AWS::EC2::SecurityGroupIngress
@@ -359,18 +543,8 @@ Resources:
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
-      CidrIp: 0.0.0.0/0
-
-  httpsIngress:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      Description: "Https"
-      GroupId: 
-        Ref: applicationSG
-      IpProtocol: tcp
-      FromPort: 443
-      ToPort: 443
-      CidrIp: 0.0.0.0/0
+      SourceSecurityGroupId:
+        Ref: loadBalancerSG
 
   webappIngress:
     Type: AWS::EC2::SecurityGroupIngress
@@ -381,7 +555,8 @@ Resources:
       IpProtocol: tcp
       FromPort: 8080
       ToPort: 8080
-      CidrIp: 0.0.0.0/0
+      SourceSecurityGroupId:
+        Ref: loadBalancerSG
 
   sgEgress:
     Type: AWS::EC2::SecurityGroupEgress

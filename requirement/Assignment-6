@@ -1,0 +1,124 @@
+IAM Users, Roles & Policies
+Add all IAM roles & policies needed to meet the assignment objectives to your CloudFormation template.
+
+Create Load Balancer Security Group
+Create a security group for the load balancer to access the web application.
+Add ingress rule to allow TCP traffic on ports 80, and 443 from anywhere in the world.
+This security group will be referred to as the load balancer security group.
+ 
+
+App Security Group Updates
+Update the EC2 security group for your EC2 instances that will host web applications.
+The ingress rule should allow TCP traffic on ports 22 and port on which your application runs.
+The Source of the traffic should be the load balancer security group.
+Restrict access to the instance from the internet.
+ 
+
+The Auto Scaling Application Stack
+So far our web application has been accessible by the IP address of the EC2 instance on HTTP protocol. We will now disable direct access to our web application using the IP address of the EC2 instance. The web application will now only be accessible from the load balancer.
+
+ 
+
+Setup Autoscaling for EC2 Instances
+Instead of launching standalone EC2 instances, we are now going to launch them in an auto-scaling group with a minimum of 1 instance and a maximum of 5. Use the default (or customize them as per your preference) for properties not listed below.
+
+Launch Configuration
+Key	Value
+ImageId	Your custom AMI
+Instance Type	t2.micro
+KeyName	YOUR_AWS_KEYNAME
+AssociatePublicIpAddress	True
+UserData	SAME_USER_DATA_AS_CURRENT_EC2_INSTANCE
+IAM Role	SAME_AS_CURRENT_EC2_INSTANCE
+Resource Name	asg_launch_config
+Security Group	WebAppSecurityGroup
+Auto Scaling Group
+Note: You should add tags  (Links to an external site.)(AutoScalingGroup TagProperty (Links to an external site.)) to the EC2 instances in your Auto Scaling Group.
+
+Parameter	Value
+Cooldown	60
+LaunchConfigurationName	asg_launch_config
+MinSize	3
+MaxSize	5
+DesiredCapacity	3
+ 
+
+AutoScaling Policies
+Create the following autoscaling policies:
+
+Scale up policy when average CPU usage is above 5%. Increment by 1.
+Scale down policy when average CPU usage is below 3%. Decrement by 1.
+ 
+
+Setup Application Load Balancer For Your Web Application
+EC2 instances launched in the auto-scaling group should now be load balanced.
+Add a balancer resource to your CloudFormation template.
+Setup Application load balancer to accept HTTP traffic on port 80 and forward it to your application instances on whatever port it listens on.
+Attach the load balancer security group to the load balacer.
+ 
+
+DNS Updates
+Route53 should be updated from the CloudFormation template.
+Route53 resource record for your domain name should now be an alias for your load balancer application.
+The CloudFormation template should configure Route53 so that your domain points to your load balancer and your web application is accessible thru http://your-domain-name.tld/ (Links to an external site.).
+Your application must be accessible using root context i.e. https://your-domain-name.tld/ (Links to an external site.) and not https://your-domain-name.tld/app-0.1/ (Links to an external site.)
+ 
+
+Create JMeter Load Testing Script (optional)
+Using Apache JMeter (Links to an external site.) create tests that can be run against your application APIs.
+JMeter tests need to make 500 concurrent API calls to your application.
+JMeter tests should be stored in your application GitHub repository.
+ 
+
+Documentation
+Meter
+JMeter User Manual (Links to an external site.)
+How To Use Apache JMeter To Perform Load Testing on a Web Server (Links to an external site.)
+How To Use Apache JMeter To Perform Load Testing on a Web Server (Links to an external site.)
+Fill Forms and Submit With JMeter (Links to an external site.)
+Using CSV DATA SET with JMeter (Links to an external site.)
+https://www.blazemeter.com/blog/how-use-http-basic-authentication-jmeter/ (Links to an external site.)
+Load Testing & Autoscaling
+Sample Auto Scaling CloudFormation Template (Links to an external site.)
+Auto Scaling AutoScalingGroup TagProperty (Links to an external site.)
+AWS::Route53::RecordSet CloudFormation (Links to an external site.)
+Load Testing Web Servers with Siege (Links to an external site.)
+https://docs.aws.amazon.com/autoscaling/ec2/userguide/autoscaling-load-balancer.html (Links to an external site.)
+ 
+
+Submission
+The assignment will be considered late if commits are made to the main branch after the due date.
+
+All work for this assignment must be done on the feature branch in your fork and merged to main when you are dev complete.
+The feature and main branches must be in sync.
+Submit your code from all repositories in this assignment. Read the instructions carefully to create your zip file.
+Create a folder with the naming convention firstname_lastname_neuid
+In the firstname_lastname_neuid clone all of your GitHub (organization) repositories with the git clone command. It is important that you clone the repos so that your commit history and branches are preserved.
+Once you have cloned all of your repositories, you will create a zip of the firstname_lastname_neuid_a_## directory. The zip file should be firstname_lastname_neuid_a_##.zip where ## is the assignment number.
+Now unzip the zip file in some other directory and confirm the content of the zip files.
+Upload the Zip to this assignment.
+You are allowed to resubmit. If you think there may be an issue with the ZIP file, feel free to submit it again. Only the latest will be used grading.
+ 
+
+Grading Guidelines
+The following guidelines are for information only. They are subject to change at the discretion of the instructor and TA.
+
+10% penalty will be imposed if the application crashes due to unhandled exceptions/errors.
+
+Previous Assignment Objectives
+TAs must verify that students have resolved all open issues from the previous assignment(s).
+ 
+
+Git Repository Content Check (10% Penalty)
+Check the repository for any IDE-specific files. IDE configuration files must not be in the repository.
+Verify their .gitignore configuration.
+Check the repository for build artifacts such as .class, .jar, .war files and build, node_modules directory. None of these should be checked into the repository.
+Check for dependencies. Dependencies from the Maven repository or npm should not be committed to the git repository.
+ 
+
+Pre-requisite for Demo (5% Penalty)
+Delete all VPCs you may have created in your demo AWS account.
+ 
+
+Application Crash (10% Penalty)
+The application should not crash or return 500 Internal Server Errors during the demo.
