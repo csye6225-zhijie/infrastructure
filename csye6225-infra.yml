@@ -87,16 +87,20 @@ Resources:
       LaunchTemplateName: !Sub '${AWS::StackName}-launch-template'
       LaunchTemplateData:
         BlockDeviceMappings:
-        - DeviceName: /dev/sda1  #
+        - DeviceName: /dev/xvda  #
           Ebs:
             VolumeSize: 20
-            VolumeType: "gp3"
+            VolumeType: "gp2"
             DeleteOnTermination: true
         ImageId: !Ref CustomAMI
         InstanceType: t2.micro
         KeyName: !Ref SshKeyName
-        SecurityGroupIds:
-         - Ref: applicationSG
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: true
+            Groups: 
+            - !Ref applicationSG
+            DeleteOnTermination: true
         IamInstanceProfile:
           Name: !Ref ec2InstanceProfile
         # resourceName:
@@ -134,11 +138,8 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref asgLaunchTemplate
         Version: !GetAtt asgLaunchTemplate.LatestVersionNumber
-      # LoadBalancerNames:
-      #   - String
       MaxSize: '5'
       MinSize: '1'
-      NewInstancesProtectedFromScaleIn: true
       Tags:
         - Key: Application
           Value: WebApp
@@ -153,27 +154,12 @@ Resources:
         - Ref: publicSubnet2
         - Ref: publicSubnet3
 
-  asgCPUPolicy:
-    Type: AWS::AutoScaling::ScalingPolicy
-    Properties:
-      AutoScalingGroupName: !Ref asgWebApp
-      PolicyType: TargetTrackingScaling
-      TargetTrackingConfiguration:
-        PredefinedMetricSpecification:
-          PredefinedMetricType: ASGAverageCPUUtilization
-        TargetValue: 4.0
-
   asgCPUScaleInPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:
       AutoScalingGroupName: !Ref asgWebApp
-      PolicyType: StepScaling
-      MetricAggregationType: Average
-      EstimatedInstanceWarmup: 60
-      StepAdjustments: 
-        - MetricIntervalLowerBound: -3
-          MetricIntervalUpperBound: 0
-          ScalingAdjustment: -1
+      AdjustmentType: ChangeInCapacity
+      ScalingAdjustment: '-1'
 
   asgScaleInAlarm:
     Type: 'AWS::CloudWatch::Alarm'
@@ -181,11 +167,11 @@ Resources:
       EvaluationPeriods: '1'
       Statistic: Average
       Threshold: '3'
-      AlarmDescription: Scale up alarm when CPU usage > 3% for 20s
-      Period: '20'
+      AlarmDescription: Scale down alarm when CPU usage < 3% for 60s
+      Period: '60'
       AlarmActions:
       - !Ref asgCPUScaleInPolicy
-      Namespace: AWS/AutoScaling
+      Namespace: AWS/EC2
       Dimensions:
         - Name: AutoScalingGroupName
           Value: !Ref asgWebApp
@@ -196,13 +182,8 @@ Resources:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:
       AutoScalingGroupName: !Ref asgWebApp
-      PolicyType: StepScaling
-      MetricAggregationType: Average
-      EstimatedInstanceWarmup: 60
-      StepAdjustments: 
-        - MetricIntervalLowerBound: 0.0
-          MetricIntervalUpperBound: 50.0
-          ScalingAdjustment: 1
+      AdjustmentType: ChangeInCapacity
+      ScalingAdjustment: '1'
 
   asgScaleOutAlarm:
     Type: 'AWS::CloudWatch::Alarm'
@@ -210,11 +191,11 @@ Resources:
       EvaluationPeriods: '1'
       Statistic: Average
       Threshold: '5'
-      AlarmDescription: Scale up alarm when CPU usage > 5% for 20s
-      Period: '20'
+      AlarmDescription: Scale up alarm when CPU usage > 5% for 60s
+      Period: '60'
       AlarmActions:
       - !Ref asgCPUScaleOutPolicy
-      Namespace: AWS/AutoScaling
+      Namespace: AWS/EC2
       Dimensions:
         - Name: AutoScalingGroupName
           Value: !Ref asgWebApp
@@ -247,7 +228,7 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       HealthCheckIntervalSeconds: 90
-      HealthCheckPath: '/healthz"'   
+      HealthCheckPath: '/healthz'   
       HealthCheckPort: '8080'
       HealthCheckProtocol: 'HTTP'
       HealthCheckTimeoutSeconds: 60
@@ -277,15 +258,17 @@ Resources:
       Protocol: HTTP
 
   myDNSRecord:
-    Type: AWS::Route53::RecordSet
+    Type: AWS::Route53::RecordSetGroup
     Properties:
-      HostedZoneId: Z08918562D3JJ9PVPT8I1
+      HostedZoneId: Z08918192P49P8LM100VZ
       Comment: DNS name routes traffic to load balancer.
-      Name: !Sub "${EnvironmentName}.zhijie-li.me"
-      Type: "A"
-      TTL: 60
-      ResourceRecords:
-      - !GetAtt loadBalancer.DNSName
+      RecordSets:
+        - Name: !Sub "${EnvironmentName}.zhijie-li.me"
+          Type: A
+          AliasTarget:
+            HostedZoneId: !GetAtt loadBalancer.CanonicalHostedZoneID
+            DNSName: !GetAtt loadBalancer.DNSName
+      
 
   ec2InstanceRole:
     Type: AWS::IAM::Role
