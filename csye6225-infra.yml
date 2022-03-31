@@ -69,6 +69,14 @@ Parameters:
     Type: String
     Default: "CSYE_6225"
 
+  HostedZoneId:
+    Type: String
+    Default: "Z08918192P49P8LM100VZ"
+
+  AccountId:
+    Type: String
+    Default: "508720203319"
+
 Resources:
   myVPC:
     Type: AWS::EC2::VPC
@@ -101,9 +109,10 @@ Resources:
             Groups: 
             - !Ref applicationSG
             DeleteOnTermination: true
+        Monitoring: 
+          Enabled: true
         IamInstanceProfile:
           Name: !Ref ec2InstanceProfile
-        # resourceName:
         UserData: 
           Fn::Base64: !Sub |
               #!/bin/bash
@@ -138,7 +147,7 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref asgLaunchTemplate
         Version: !GetAtt asgLaunchTemplate.LatestVersionNumber
-      MaxSize: '5'
+      MaxSize: '2'
       MinSize: '1'
       Tags:
         - Key: Application
@@ -166,7 +175,7 @@ Resources:
     Properties:
       EvaluationPeriods: '1'
       Statistic: Average
-      Threshold: '3'
+      Threshold: '5'
       AlarmDescription: Scale down alarm when CPU usage < 3% for 60s
       Period: '60'
       AlarmActions:
@@ -190,7 +199,7 @@ Resources:
     Properties:
       EvaluationPeriods: '1'
       Statistic: Average
-      Threshold: '5'
+      Threshold: '10'
       AlarmDescription: Scale up alarm when CPU usage > 5% for 60s
       Period: '60'
       AlarmActions:
@@ -260,7 +269,7 @@ Resources:
   myDNSRecord:
     Type: AWS::Route53::RecordSetGroup
     Properties:
-      HostedZoneId: Z08918192P49P8LM100VZ
+      HostedZoneId: !Ref HostedZoneId
       Comment: DNS name routes traffic to load balancer.
       RecordSets:
         - Name: !Sub "${EnvironmentName}.zhijie-li.me"
@@ -269,10 +278,10 @@ Resources:
             HostedZoneId: !GetAtt loadBalancer.CanonicalHostedZoneID
             DNSName: !GetAtt loadBalancer.DNSName
       
-
-  ec2InstanceRole:
+  ec2webAppS3Role:
     Type: AWS::IAM::Role
     Properties: 
+      # RoleName: EC2-CSYE6225
       AssumeRolePolicyDocument: 
         Version: "2012-10-17"
         Statement:
@@ -283,35 +292,28 @@ Resources:
             Action:
               - 'sts:AssumeRole'
       Description: "Allow application traffic into rds"
-      # Policies: 
-      #   - Ref: webAppS3Policy
-      RoleName: EC2-CSYE6225
+
+  ec2CodeDeployServiceRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codedeploy.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'    
+      Description: "Give required role to CodeDeploy"
 
   ec2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties: 
       InstanceProfileName: ec2InstanceProfile
       Roles: 
-        - Ref: ec2InstanceRole
-
-  webAppS3Policy:
-    Type: AWS::IAM::Policy
-    DependsOn: ec2InstanceRole
-    Properties:
-      PolicyName: webAppS3
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Action:
-              - 's3:GetObject'
-              - 's3:PutObject'
-              - 's3:DeleteObject'
-            Effect: Allow
-            Resource:  
-              - !Sub 'arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me'
-              - !Sub 'arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me/*'
-      Roles: 
-        - !Ref ec2InstanceRole
+        # - Ref: ec2webAppS3Role
+        - Ref: ec2CodeDeployServiceRole
     
   publicSubnet1:
     Type: AWS::EC2::Subnet
@@ -408,7 +410,6 @@ Resources:
     Type: AWS::EC2::Route
     DependsOn:
       - myVpcGatewayAttachment
-      - myInternetGateway
     Properties:
       RouteTableId:
         Ref: publicRouteTable
@@ -526,8 +527,9 @@ Resources:
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
-      SourceSecurityGroupId:
-        Ref: loadBalancerSG
+      # SourceSecurityGroupId:
+      #   Ref: loadBalancerSG
+      CidrIp: 0.0.0.0/0
 
   webappIngress:
     Type: AWS::EC2::SecurityGroupIngress
@@ -538,8 +540,9 @@ Resources:
       IpProtocol: tcp
       FromPort: 8080
       ToPort: 8080
-      SourceSecurityGroupId:
-        Ref: loadBalancerSG
+      # SourceSecurityGroupId:
+      #   Ref: loadBalancerSG
+      CidrIp: 0.0.0.0/0
 
   sgEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -598,7 +601,7 @@ Resources:
               SSEAlgorithm: 'AES256'
         
   rdsParameterGroup:
-    Type: 'AWS::RDS::DBParameterGroup'
+    Type: AWS::RDS::DBParameterGroup
     Properties:
       Description: "RDS of MySQL Parameter Group"
       Family: mysql8.0
@@ -616,7 +619,7 @@ Resources:
       AllocatedStorage: "10"
       PubliclyAccessible: false
       MultiAZ: false
-      AvailabilityZone: 'us-east-1a'
+      AvailabilityZone: !Ref AZ1
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBUserPassword
       DBSubnetGroupName: 
@@ -634,6 +637,172 @@ Resources:
         - Ref: privateSubnet2 
         - Ref: privateSubnet3
 
+  webAppS3Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: webAppS3
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:GetObject'
+              - 's3:PutObject'
+              - 's3:DeleteObject'
+            Effect: Allow
+            Resource:  
+              - !Sub 'arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me'
+              - !Sub 'arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me/*'
+      Roles: 
+        - !Ref ec2webAppS3Role
+  
+  ec2CodeDeployFromS3Policy: 
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+                "Effect": "Allow",
+                "Action": [
+                  "s3:Get*",
+                  "s3:List*"
+                ],
+                "Resource": [
+                  "arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me/*",
+                  "arn:aws:s3:::aws-codedeploy-us-east-1/*"
+                ]
+            }
+          ]
+        }
+      PolicyName: CodeDeploy-EC2-S3
+      Roles: 
+        - !Ref ec2CodeDeployServiceRole
+
+  ghUploadToS3:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:GetObject'
+              - 's3:Put*'
+              - 's3:List*'
+            Effect: Allow
+            Resource:  
+              - !Sub 'arn:aws:s3:::codedeploy.${EnvironmentName}.zhijie-li.me/*'
+      PolicyName: GH-Upload-To-S3
+      Users:
+        - "ghactions-app"  
+
+  ghCodeDeployPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:      
+          - Action:
+              - "codedeploy:RegisterApplicationRevision"
+              - "codedeploy:GetApplicationRevision"
+            Effect: Allow
+            Resource:  
+              - !Sub "arn:aws:codedeploy:us-east-1:${AWS::AccountId}:application:csye6225-webapp"
+          - Action:
+            - "codedeploy:CreateDeployment"
+            - "codedeploy:GetDeployment"
+            Effect: Allow
+            Resource:
+              - "*"
+          - Effect: Allow
+            Action:
+            - "codedeploy:GetDeploymentConfig"
+            Resource:
+              - !Sub "arn:aws:codedeploy:us-east-1:${AWS::AccountId}:deploymentconfig:CodeDeployDefault.OneAtATime"
+              - !Sub "arn:aws:codedeploy:us-east-1:${AWS::AccountId}:deploymentconfig:CodeDeployDefault.HalfAtATime"
+              - !Sub "arn:aws:codedeploy:us-east-1:${AWS::AccountId}:deploymentconfig:CodeDeployDefault.AllAtOnce"
+      PolicyName: GH-Code-Deploy
+      Users:
+        - "ghactions-app"          
+      
+  ghBuildEC2ami:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ec2:AttachVolume",
+                "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:CopyImage",
+                "ec2:CreateImage",
+                "ec2:CreateKeypair",
+                "ec2:CreateSecurityGroup",
+                "ec2:CreateSnapshot",
+                "ec2:CreateTags",
+                "ec2:CreateVolume",
+                "ec2:DeleteKeyPair",
+                "ec2:DeleteSecurityGroup",
+                "ec2:DeleteSnapshot",
+                "ec2:DeleteVolume",
+                "ec2:DeregisterImage",
+                "ec2:DescribeImageAttribute",
+                "ec2:DescribeImages",
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceStatus",
+                "ec2:DescribeRegions",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSnapshots",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeTags",
+                "ec2:DescribeVolumes",
+                "ec2:DetachVolume",
+                "ec2:GetPasswordData",
+                "ec2:ModifyImageAttribute",
+                "ec2:ModifyInstanceAttribute",
+                "ec2:ModifySnapshotAttribute",
+                "ec2:RegisterImage",
+                "ec2:RunInstances",
+                "ec2:StopInstances",
+                "ec2:TerminateInstances"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      PolicyName: GH-ec2-ami
+      Users:
+        - "ghactions-app" 
+
+  codeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties: 
+      ApplicationName: csye6225-webapp
+      # ComputePlatform: String
+
+  codeDeployGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties: 
+      ApplicationName: !Ref codeDeployApplication
+      DeploymentGroupName: csye6225-webapp-deployment
+      DeploymentConfigName: CodeDeployDefault.AllAtOnce
+      DeploymentStyle:
+        DeploymentOption: WITH_TRAFFIC_CONTROL
+        DeploymentType: IN_PLACE
+      AutoScalingGroups: 
+        - !Ref asgWebApp
+      AutoRollbackConfiguration:
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+      ServiceRoleArn: !GetAtt ec2CodeDeployServiceRole.Arn         
+      Ec2TagFilters:
+        - Type: KEY_AND_VALUE
+          Key: Application
+          Value: WebApp
 
 Outputs:
   VpcId:
