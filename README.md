@@ -16,6 +16,10 @@
 3. in ZSH, set env variable by `export AWS_PROFILE=${current_account}` and `export AWS_REGION=us-east-1`
 4. Validate template syntax by `aws cloudformation validate-template --template-body file://csye6225-infra.yml`
 
+**Demo7**
+Update the stack with IAM roles&policy for CI/CD user and CodeDeploy
+`aws cloudformation update-stack --stack-name test --template-body file://codedeploy-cicd.yml --parameters ParameterKey=EnvironmentName,ParameterValue="prod" --capabilities CAPABILITY_NAMED_IAM`
+
 **Demo5**
 `aws cloudformation create-stack --stack-name demo --template-body file://csye6225-infra.yml --parameters ParameterKey=EnvironmentName,ParameterValue="dev" ParameterKey=CustomAMI,ParameterValue="ami-05b391420c84bfa6a" ParameterKey=DBUserPassword,ParameterValue="CSYE_6225" --capabilities CAPABILITY_NAMED_IAM`
 
