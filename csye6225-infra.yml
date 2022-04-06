@@ -138,9 +138,9 @@ Resources:
     Properties:
       AutoScalingGroupName: !Sub ${AWS::StackName}-asg
       AvailabilityZones:
-        - us-east-1a
-        - us-east-1b
-        - us-east-1c
+        - !Ref AZ1
+        - !Ref AZ2
+        - !Ref AZ3
       Cooldown: '60'
       DesiredCapacity: '1'
       HealthCheckGracePeriod: 90
@@ -658,6 +658,7 @@ Resources:
       Roles: 
         - !Ref ec2CodeDeployServiceRole
   
+
 Outputs:
   VpcId:
     Description: The VPC Id
