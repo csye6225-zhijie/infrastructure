@@ -74,10 +74,6 @@ Parameters:
     Type: String
     Default: "Z08918192P49P8LM100VZ"
 
-  # AccountId:
-  #   Type: String
-  #   Default: "508720203319"
-
 Resources:
   myVPC:
     Type: AWS::EC2::VPC
@@ -200,7 +196,7 @@ Resources:
     Properties:
       EvaluationPeriods: '1'
       Statistic: Average
-      Threshold: '10'
+      Threshold: '20'
       AlarmDescription: Scale up alarm when CPU usage > 5% for 60s
       Period: '60'
       AlarmActions:
@@ -278,21 +274,6 @@ Resources:
           AliasTarget:
             HostedZoneId: !GetAtt loadBalancer.CanonicalHostedZoneID
             DNSName: !GetAtt loadBalancer.DNSName
-      
-  # ec2webAppS3Role:
-  #   Type: AWS::IAM::Role
-  #   Properties: 
-  #     # RoleName: EC2-CSYE6225
-  #     AssumeRolePolicyDocument: 
-  #       Version: "2012-10-17"
-  #       Statement:
-  #         - Effect: Allow
-  #           Principal:
-  #             Service:
-  #               - ec2.amazonaws.com
-  #           Action:
-  #             - 'sts:AssumeRole'
-  #     Description: "Allow application traffic into rds"
 
   ec2CodeDeployServiceRole:
     Type: AWS::IAM::Role
@@ -308,13 +289,14 @@ Resources:
             Action:
               - 'sts:AssumeRole'    
       Description: "Give required role to CodeDeploy"
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
 
   ec2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties: 
       InstanceProfileName: ec2InstanceProfile
       Roles: 
-        # - Ref: ec2webAppS3Role
         - Ref: ec2CodeDeployServiceRole
     
   publicSubnet1:
@@ -542,9 +524,9 @@ Resources:
       IpProtocol: tcp
       FromPort: 8080
       ToPort: 8080
-      # SourceSecurityGroupId:
-      #   Ref: loadBalancerSG
-      CidrIp: 0.0.0.0/0
+      SourceSecurityGroupId:
+        Ref: loadBalancerSG
+      # CidrIp: 0.0.0.0/0
 
   sgEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -642,22 +624,69 @@ Resources:
   webAppS3Policy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: CodeDeploy-EC2-S3
+      PolicyName: EC2-CSYE6225
       PolicyDocument:
         Version: 2012-10-17
         Statement:
           - Action:
-              - 's3:GetObject'
-              - 's3:PutObject'
-              - 's3:DeleteObject'
+              - 's3:Get*'
+              - 's3:Put*'
+              - 's3:Delete*'
+              - 's3:List*'
             Effect: Allow
             Resource:  
+              - !Sub 'arn:aws:s3:::codedeploy.${EnvironmentName}.zhijie-li.me'
+              - !Sub 'arn:aws:s3:::codedeploy.${EnvironmentName}.zhijie-li.me/*'
               - !Sub 'arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me'
               - !Sub 'arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me/*'
-              - "arn:aws:s3:::aws-codedeploy-us-east-1/*"
       Roles: 
         - !Ref ec2CodeDeployServiceRole
-  
+
+  codeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties: 
+      ApplicationName: csye6225-webapp
+
+  codeDeployGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties: 
+      ApplicationName: !Ref codeDeployApplication
+      DeploymentGroupName: csye6225-webapp-deployment
+      DeploymentConfigName: CodeDeployDefault.AllAtOnce
+      DeploymentStyle:
+        DeploymentOption: WITH_TRAFFIC_CONTROL 
+        DeploymentType: IN_PLACE
+      AutoScalingGroups: 
+        - !Ref asgWebApp
+      LoadBalancerInfo:
+        TargetGroupInfoList:
+          - Name: !GetAtt loadBalancerTargetGroup.TargetGroupName
+      AutoRollbackConfiguration:
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn         
+      # Ec2TagFilters:
+      #   - Type: KEY_AND_VALUE
+      #     Key: Application
+      #     Value: WebApp
+
+  CodeDeployServiceRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+                - codedeploy.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'    
+      Description: "Give required role to CodeDeploy"  
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 
 Outputs:
   VpcId:

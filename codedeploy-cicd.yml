@@ -10,6 +10,7 @@ Parameters:
     Default: "508720203319"
 
 Resources:
+
   ghUploadToS3:
     Type: 'AWS::IAM::Policy'
     Properties:
@@ -17,12 +18,13 @@ Resources:
         Version: 2012-10-17
         Statement:
           - Action:
-              - 's3:GetObject'
+              - 's3:Get*'
               - 's3:Put*'
               - 's3:List*'
             Effect: Allow
             Resource:  
-              - !Sub 'arn:aws:s3:::codedeploy.${EnvironmentName}.zhijie-li.me/*'
+            - !Sub 'arn:aws:s3:::codedeploy.${EnvironmentName}.zhijie-li.me'
+            - !Sub 'arn:aws:s3:::codedeploy.${EnvironmentName}.zhijie-li.me/*'
       PolicyName: GH-Upload-To-S3
       Users:
         - "ghactions-app"  
@@ -108,123 +110,4 @@ Resources:
       Users:
         - "ghactions-app" 
 
-  codeDeployApplication:
-    Type: AWS::CodeDeploy::Application
-    Properties: 
-      ApplicationName: csye6225-webapp
-      # ComputePlatform: String
 
-  codeDeployGroup:
-    Type: AWS::CodeDeploy::DeploymentGroup
-    Properties: 
-      ApplicationName: !Ref codeDeployApplication
-      DeploymentGroupName: csye6225-webapp-deployment
-      DeploymentConfigName: CodeDeployDefault.AllAtOnce
-      DeploymentStyle:
-        DeploymentOption: WITHOUT_TRAFFIC_CONTROL ##
-        DeploymentType: IN_PLACE
-      # AutoScalingGroups: 
-      #   - !Ref asgWebApp
-      AutoRollbackConfiguration:
-        Enabled: true
-        Events:
-          - DEPLOYMENT_FAILURE
-      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn         
-      Ec2TagFilters:
-        - Type: KEY_AND_VALUE
-          Key: Application
-          Value: WebApp
-
-  CodeDeployServiceRole:
-    Type: AWS::IAM::Role
-    Properties: 
-      AssumeRolePolicyDocument: 
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - codedeploy.amazonaws.com
-            Action:
-              - 'sts:AssumeRole'    
-      Description: "Give required role to CodeDeploy"  
-
-  CodeDeployPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: CodeDeployPolicy
-      PolicyDocument:
-        {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Action": [
-                "autoscaling:CompleteLifecycleAction",
-                "autoscaling:DeleteLifecycleHook",
-                "autoscaling:DescribeAutoScalingGroups",
-                "autoscaling:DescribeLifecycleHooks",
-                "autoscaling:PutLifecycleHook",
-                "autoscaling:RecordLifecycleActionHeartbeat",
-                "autoscaling:CreateAutoScalingGroup",
-                "autoscaling:UpdateAutoScalingGroup",
-                "autoscaling:EnableMetricsCollection",
-                "autoscaling:DescribePolicies",
-                "autoscaling:DescribeScheduledActions",
-                "autoscaling:DescribeNotificationConfigurations",
-                "autoscaling:SuspendProcesses",
-                "autoscaling:ResumeProcesses",
-                "autoscaling:AttachLoadBalancers",
-                "autoscaling:AttachLoadBalancerTargetGroups",
-                "autoscaling:PutScalingPolicy",
-                "autoscaling:PutScheduledUpdateGroupAction",
-                "autoscaling:PutNotificationConfiguration",
-                "autoscaling:PutWarmPool",
-                "autoscaling:DescribeScalingActivities",
-                "autoscaling:DeleteAutoScalingGroup",
-                "ec2:DescribeInstances",
-                "ec2:DescribeInstanceStatus",
-                "ec2:TerminateInstances",
-                "tag:GetResources",
-                "sns:Publish",
-                "cloudwatch:DescribeAlarms",
-                "cloudwatch:PutMetricAlarm",
-                "elasticloadbalancing:DescribeLoadBalancers",
-                "elasticloadbalancing:DescribeInstanceHealth",
-                "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
-                "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
-                "elasticloadbalancing:DescribeTargetGroups",
-                "elasticloadbalancing:DescribeTargetHealth",
-                "elasticloadbalancing:RegisterTargets",
-                "elasticloadbalancing:DeregisterTargets"
-              ],
-              "Resource": "*"
-            }
-          ]
-        }
-      Roles: 
-        - !Ref CodeDeployServiceRole
-
-    # ec2CodeDeployFromS3Policy: 
-  #   Type: AWS::IAM::Policy
-  #   Properties:
-  #     PolicyDocument:
-  #       {
-  #         "Version": "2012-10-17",
-  #         "Statement": [
-  #           {
-  #               "Effect": "Allow",
-  #               "Action": [
-  #                 "s3:Get*",
-  #                 "s3:List*"
-  #               ],
-  #               "Resource": [
-  #                 "arn:aws:s3:::csye6225.${EnvironmentName}.zhijie-li.me/*",
-  #                 "arn:aws:s3:::aws-codedeploy-us-east-1/*"
-  #               ]
-  #           }
-  #         ]
-  #       }
-  #     PolicyName: CodeDeploy-EC2-S3
-  #     Roles: 
-  #       - !Ref ec2CodeDeployServiceRole
