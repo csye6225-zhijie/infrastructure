@@ -113,7 +113,6 @@ Resources:
         UserData: 
           Fn::Base64: !Sub |
               #!/bin/bash
-              sudo mkdir /home/ec2-user/test
 
               cat >>/home/ec2-user/csye/application.properties <<EOF
               amazon.s3.bucket-name=csye6225.${EnvironmentName}.zhijie-li.me
@@ -122,11 +121,18 @@ Resources:
               spring.datasource.username=${DBUsername}
               spring.datasource.password=${DBUserPassword}
               spring.datasource.url=jdbc:mysql://${rdsInstance.Endpoint.Address}:3306/csye6225?useSSL=false&allowPublicKeyRetrieval=true
+              ## StatsD
+              publish.metrics=true
+              metrics.server.hostname=localhost
+              metrics.server.port=8125
+              logging.file.name=/home/ec2-user/csye6225.log
+              logging.level.root=info
               EOF
 
               ## Restart our service
               sudo systemctl enable application.service
               sudo systemctl start application.service
+              sudo service codedeploy-agent start
 
   asgWebApp:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -511,9 +517,9 @@ Resources:
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
-      # SourceSecurityGroupId:
-      #   Ref: loadBalancerSG
-      CidrIp: 0.0.0.0/0
+      SourceSecurityGroupId:
+        Ref: loadBalancerSG
+      # CidrIp: 0.0.0.0/0
 
   webappIngress:
     Type: AWS::EC2::SecurityGroupIngress
@@ -526,7 +532,6 @@ Resources:
       ToPort: 8080
       SourceSecurityGroupId:
         Ref: loadBalancerSG
-      # CidrIp: 0.0.0.0/0
 
   sgEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -654,22 +659,24 @@ Resources:
       DeploymentGroupName: csye6225-webapp-deployment
       DeploymentConfigName: CodeDeployDefault.AllAtOnce
       DeploymentStyle:
-        DeploymentOption: WITH_TRAFFIC_CONTROL 
+        DeploymentOption: WITHOUT_TRAFFIC_CONTROL 
         DeploymentType: IN_PLACE
       AutoScalingGroups: 
         - !Ref asgWebApp
-      LoadBalancerInfo:
-        TargetGroupInfoList:
-          - Name: !GetAtt loadBalancerTargetGroup.TargetGroupName
+      # LoadBalancerInfo:
+      #   TargetGroupInfoList:
+      #     - Name: !GetAtt loadBalancerTargetGroup.TargetGroupName
       AutoRollbackConfiguration:
         Enabled: true
         Events:
           - DEPLOYMENT_FAILURE
       ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn         
-      # Ec2TagFilters:
-      #   - Type: KEY_AND_VALUE
-      #     Key: Application
-      #     Value: WebApp
+      Ec2TagSet:
+        Ec2TagSetList:
+        - Ec2TagGroup:
+          - Key: Application
+            Value: WebApp
+            Type: KEY_AND_VALUE
 
   CodeDeployServiceRole:
     Type: AWS::IAM::Role
