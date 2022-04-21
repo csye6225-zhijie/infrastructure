@@ -27,7 +27,7 @@ ParameterKey=HostedZoneId,ParameterValue="Z08918562D3JJ9PVPT8I1" \
 --capabilities CAPABILITY_NAMED_IAM
 
 **Demo5**
-`aws cloudformation create-stack --stack-name demo --template-body file://csye6225-infra.yml --parameters ParameterKey=EnvironmentName,ParameterValue="dev" ParameterKey=CustomAMI,ParameterValue="ami-05b391420c84bfa6a" ParameterKey=DBUserPassword,ParameterValue="CSYE_6225" --capabilities CAPABILITY_NAMED_IAM`
+`aws cloudformation create-stack --stack-name demo --template-body file://csye6225-infra.yml --parameters ParameterKey=EnvironmentName,ParameterValue="dev" ParameterKey=CustomAMI,ParameterValue="ami-0f8b57c1ad56f1bee" ParameterKey=DBUserPassword,ParameterValue="CSYE_6225" --capabilities CAPABILITY_NAMED_IAM`
 
 aws cloudformation create-stack --stack-name demo \
     --template-body file://csye6225-infra.yml \

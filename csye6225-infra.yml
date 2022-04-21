@@ -695,6 +695,73 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 
+  lambdaSNSrole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'    
+      ManagedPolicyArns:
+       - "arn:aws:iam::aws:policy/service-role/AmazonS3ObjectLambdaExecutionRolePolicy"
+
+  lambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Runtime: java8
+      Handler: index.handler
+      MemorySize: 10240
+      Role: !Ref lambdaSNSrole
+      PackageType: Zip
+      FunctionName: send_user_verification_email
+      Code: 
+        ZipFile: |
+
+
+  # lambdaInvokePermission:
+  #   Type: AWS::Lambda::Permission
+  #   Properties: 
+  #     Action: lambda:InvokeFunction
+  #     FunctionName: send_user_verification_email
+  #     # FunctionUrlAuthType: AWS_IAM ##
+  #     Principal: sns.amazonaws.com
+  #     # SourceArn: !GetAtt snsTopic.Arn  
+
+  snsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Protocol: lambda      
+        Endpoint: !GetAtt lambdaFunction.Arn
+      TopicName: SNS-topic-for-lambda
+
+  dynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UserToken
+      BillingMode: PROVISIONED
+      AttributeDefinitions:
+        - AttributeName: userEmail
+          AttributeType: S
+        - AttributeName: token
+          AttributeType: S          
+      KeySchema: 
+        - AttributeName: userEmail
+          KeyType: "HASH"      
+        - AttributeName: token
+          KeyType: "RANGE"      
+      ProvisionedThroughput:
+        ReadCapacityUnits: "5"
+        WriteCapacityUnits: "5"
+      TimeToLiveSpecification:
+        AttributeName: TimeToLive
+        Enabled: true      
+
 Outputs:
   VpcId:
     Description: The VPC Id
