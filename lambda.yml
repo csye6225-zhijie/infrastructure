@@ -1,0 +1,94 @@
+Description: Lambda function, SNS and DynamoDB setting
+# Parameters:
+
+Resources:
+  lambdaSNSrole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'    
+      # ManagedPolicyArns:
+      #  - "arn:aws:iam::aws:policy/service-role/AmazonS3ObjectLambdaExecutionRolePolicy" 
+
+  lambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Runtime: java8
+      Handler: index.handler
+      MemorySize: 10240
+      Role: !Ref lambdaSNSrole
+      PackageType: Zip
+      FunctionName: send_user_verification_email
+      Code: 
+        ZipFile: |
+
+  lambdaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: lambda-for-sns-policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+              - "logs:DescribeLogStreams"
+              - "ses:SendEmail"
+              - "ses:SendRawEmail"
+            Effect: Allow
+            Resource: "*"
+      Roles: 
+        - !Ref lambdaSNSrole
+
+
+  lambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    # DependsOn: !Ref snsTopic
+    Properties: 
+      Action: lambda:InvokeFunction
+      FunctionName: send_user_verification_email
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref snsTopic 
+
+  snsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Protocol: lambda      
+        Endpoint: !GetAtt lambdaFunction.Arn
+      TopicName: SNS-topic-for-lambda
+
+  dynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UserToken
+      BillingMode: PROVISIONED
+      AttributeDefinitions:
+        - AttributeName: userEmail
+          AttributeType: S
+        - AttributeName: token
+          AttributeType: S          
+      KeySchema: 
+        - AttributeName: userEmail
+          KeyType: "HASH"      
+        - AttributeName: token
+          KeyType: "RANGE"      
+      ProvisionedThroughput:
+        ReadCapacityUnits: "5"
+        WriteCapacityUnits: "5"
+      TimeToLiveSpecification:
+        AttributeName: TimeToLive
+        Enabled: true      
+
+Outputs:
+  Arn:
+    Description: snsTopic
+    Value: !GetAtt snsTopic.TopicName
